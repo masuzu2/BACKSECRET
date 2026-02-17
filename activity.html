@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BACKSECRET - Activity Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Rajdhani:wght@500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        royal: ['Cinzel', 'serif'],
+                        tech: ['Rajdhani', 'sans-serif'],
+                        mono: ['Share Tech Mono', 'monospace'],
+                    },
+                    colors: {
+                        bgMain: '#020202',
+                        bgCard: '#070707',
+                        chromeLight: '#f1f1f1',
+                        chromeMid: '#9a9a9a',
+                        redMain: '#ff1111',
+                        redDark: '#4a0000',
+                    },
+                    boxShadow: {
+                        'red-glow': '0 0 20px rgba(255, 17, 17, 0.4), inset 0 0 10px rgba(255, 17, 17, 0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* --- BRANDING CORE --- */
+        body {
+            background-color: #020202;
+            color: #cfcfcf;
+            font-family: 'Rajdhani', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient & Vignette */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.7));
+            pointer-events: none;
+            z-index: 10;
+        }
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 50% 10%, rgba(255, 17, 17, 0.05), transparent 60%),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Ccircle cx='60' cy='60' r='1' fill='white' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Scanlines */
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.3));
+            background-size: 100% 3px;
+            pointer-events: none;
+            z-index: 40;
+            opacity: 0.15;
+        }
+
+        /* --- CARD DESIGN --- */
+        .activity-card {
+            background: linear-gradient(165deg, #090909 0%, #030303 100%);
+            border: 1px solid #1a1a1a;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        @supports (backdrop-filter: blur(1px)) {
+            .activity-card { backdrop-filter: blur(2px); }
+        }
+
+        .activity-card:hover {
+            border-color: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(0,0,0,1);
+        }
+
+        .activity-card.imminent {
+            border-color: #4a0000;
+            box-shadow: inset 0 0 20px rgba(50, 0, 0, 0.3), 0 0 15px rgba(255, 17, 17, 0.2);
+            animation: pulseWarning 2s infinite;
+        }
+
+        @keyframes pulseWarning {
+            0%, 100% { border-color: #4a0000; }
+            50% { border-color: #8a0000; }
+        }
+
+        /* Text Styles */
+        .text-chrome {
+            background: linear-gradient(to bottom, #ffffff 40%, #888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
+        }
+
+        .time-display {
+            font-family: 'Share Tech Mono', monospace;
+            letter-spacing: -1px;
+        }
+
+        /* Progress Bar */
+        .time-track {
+            background: #000;
+            height: 4px;
+            width: 100%;
+            border: 1px solid #1a1a1a;
+        }
+        .time-fill {
+            height: 100%;
+            background: #ff1111;
+            box-shadow: 0 0 10px rgba(255, 17, 17, 0.5);
+            width: 0%;
+            transition: width 1s linear;
+        }
+
+        /* Icon Glow */
+        .icon-glow {
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+            transition: filter 0.3s;
+        }
+        .activity-card:hover .icon-glow {
+            filter: drop-shadow(0 0 15px rgba(255,17,17,0.4));
+            color: #fff;
+        }
+
+        /* Navigation */
+        .nav-link {
+            font-family: 'Cinzel', serif;
+            letter-spacing: 2px;
+            color: #666;
+            transition: color 0.3s;
+        }
+        .nav-link:hover { color: #ff1111; text-shadow: 0 0 10px rgba(255,17,17,0.5); }
+
+        /* Schedule List */
+        .schedule-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .schedule-list::-webkit-scrollbar-track {
+            background: #050505;
+        }
+        .schedule-list::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center">
+
+    <div class="scanlines"></div>
+
+    <!-- Header -->
+    <header class="w-full max-w-6xl flex justify-between items-end mb-12 border-b border-white/5 pb-4 z-20">
+        <div class="flex items-center gap-4">
+            <i class="fa-solid fa-radar text-3xl text-red-600 animate-pulse"></i>
+            <div>
+                <h1 class="text-3xl md:text-4xl font-royal font-bold text-chrome tracking-widest leading-none">
+                    ACTIVITY MONITOR
+                </h1>
+                <p class="text-[10px] font-mono tracking-[0.4em] text-red-700 uppercase mt-1">REAL-TIME TRACKING SYSTEM</p>
+            </div>
+        </div>
+        <a href="index.html" class="nav-link text-xs uppercase hidden md:block">
+            <i class="fa-solid fa-chevron-left mr-2"></i> Return to Command
+        </a>
+    </header>
+
+    <!-- Content Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 w-full max-w-6xl z-20 pb-20" id="activityGrid">
+        <!-- JS will inject cards here -->
+    </div>
+
+    <!-- Global Clock -->
+    <footer class="fixed bottom-0 w-full bg-black/90 border-t border-white/5 py-2 z-50 backdrop-blur-sm flex justify-between px-8 text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+        <span>System Time: <span id="sys-time" class="text-white">00:00:00</span></span>
+        <span>STATUS: <span class="text-green-500">ONLINE</span></span>
+    </footer>
+
+    <script>
+        // --- CONFIGURATION ---
+        // Format: HH:mm
+        const schedules = {
+            airdrop: {
+                title: "AIRDROP SUPPLY",
+                icon: "fa-parachute-box",
+                times: ["14:00", "16:00", "20:00", "22:00", "01:00"],
+                desc: "High value loot drop"
+            },
+            ffa: {
+                title: "FREE FOR ALL",
+                icon: "fa-skull-crossbones",
+                times: ["20:45", "21:45", "23:45", "01:45"],
+                desc: "No rules combat zone"
+            },
+            lootbox: {
+                title: "LOOT BOX",
+                icon: "fa-cubes",
+                // 19:30 - 05:30 every 1 hour
+                times: ["19:30", "20:30", "21:30", "22:30", "23:30", "00:30", "01:30", "02:30", "03:30", "04:30", "05:30"],
+                desc: "Rare items spawn"
+            },
+            robbank: {
+                title: "BANK HEIST",
+                icon: "fa-building-columns",
+                // 19:00 - 05:00 every 2 hours
+                times: ["19:00", "21:00", "23:00", "01:00", "03:00", "05:00"],
+                desc: "Major currency event"
+            }
+        };
+
+        // --- LOGIC ---
+        function init() {
+            renderCards();
+            updateLoop();
+            setInterval(updateLoop, 1000);
+        }
+
+        function renderCards() {
+            const grid = document.getElementById('activityGrid');
+            let html = '';
+
+            for (const [key, data] of Object.entries(schedules)) {
+                // Generate time list HTML
+                let timeListHtml = data.times.map(t => 
+                    `<span class="bg-[#111] px-2 py-1 rounded border border-[#222] text-gray-400 hover:text-white hover:border-red-900 transition-colors cursor-default">${t}</span>`
+                ).join('');
+
+                html += `
+                    <div class="activity-card rounded p-6 flex flex-col h-full" id="card-${key}">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-xl font-royal font-bold text-white tracking-wider">${data.title}</h2>
+                                <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">${data.desc}</p>
+                            </div>
+                            <i class="fa-solid ${data.icon} text-2xl text-gray-700 icon-glow transition-colors duration-300" id="icon-${key}"></i>
+                        </div>
+
+                        <div class="my-auto py-4 text-center">
+                            <div class="text-[10px] text-red-600 font-mono tracking-[0.2em] uppercase mb-1" id="status-${key}">NEXT EVENT</div>
+                            <div class="text-5xl font-bold text-chrome time-display" id="timer-${key}">--:--:--</div>
+                            <div class="text-xs text-gray-500 font-mono mt-2">AT <span class="text-white font-bold" id="next-time-${key}">--:--</span></div>
+                        </div>
+
+                        <div class="mt-auto">
+                            <div class="time-track mb-4 rounded-full overflow-hidden">
+                                <div class="time-fill" id="progress-${key}"></div>
+                            </div>
+                            
+                            <div class="border-t border-white/10 pt-3">
+                                <div class="text-[9px] text-gray-600 font-mono uppercase mb-2">FULL SCHEDULE</div>
+                                <div class="flex flex-wrap gap-1 text-[10px] font-mono schedule-list max-h-24 overflow-y-auto">
+                                    ${timeListHtml}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            grid.innerHTML = html;
+        }
+
+        function updateLoop() {
+            const now = new Date();
+            updateSysTime(now);
+
+            for (const [key, data] of Object.entries(schedules)) {
+                updateCard(key, data, now);
+            }
+        }
+
+        function updateCard(key, data, now) {
+            const nextEvent = getNextEvent(data.times, now);
+            
+            const timerDisplay = document.getElementById(`timer-${key}`);
+            const nextTimeDisplay = document.getElementById(`next-time-${key}`);
+            const progressBar = document.getElementById(`progress-${key}`);
+            const statusText = document.getElementById(`status-${key}`);
+            const card = document.getElementById(`card-${key}`);
+            const icon = document.getElementById(`icon-${key}`);
+
+            if (!nextEvent) {
+                timerDisplay.innerText = "ENDED";
+                statusText.innerText = "TODAY'S CYCLE";
+                return;
+            }
+
+            const diff = nextEvent - now;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            // Display Update
+            timerDisplay.innerText = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+            nextTimeDisplay.innerText = formatTime(nextEvent);
+
+            // Styling based on time left
+            // < 15 mins = Orange Warning
+            // < 5 mins = Red Critical
+            if (diff < 5 * 60 * 1000) {
+                // Critical
+                statusText.innerText = "IMMINENT";
+                statusText.className = "text-[10px] text-red-500 font-bold font-mono tracking-[0.2em] uppercase animate-pulse";
+                card.classList.add('imminent');
+                icon.classList.add('text-red-500');
+                icon.classList.remove('text-gray-700');
+                progressBar.style.background = "#ff1111";
+                progressBar.style.boxShadow = "0 0 15px #ff1111";
+            } else if (diff < 15 * 60 * 1000) {
+                // Warning
+                statusText.innerText = "PREPARING";
+                statusText.className = "text-[10px] text-orange-500 font-mono tracking-[0.2em] uppercase";
+                card.classList.remove('imminent');
+                icon.classList.add('text-orange-500');
+                icon.classList.remove('text-gray-700', 'text-red-500');
+                progressBar.style.background = "#f97316";
+                progressBar.style.boxShadow = "0 0 10px #f97316";
+            } else {
+                // Normal
+                statusText.innerText = "INCOMING";
+                statusText.className = "text-[10px] text-gray-500 font-mono tracking-[0.2em] uppercase";
+                card.classList.remove('imminent');
+                icon.className = `fa-solid ${data.icon} text-2xl text-gray-700 icon-glow transition-colors duration-300`;
+                progressBar.style.background = "#333";
+                progressBar.style.boxShadow = "none";
+            }
+
+            // Progress Bar (Arbitrary scale: 2 hours window for visual fill)
+            const maxWindow = 2 * 60 * 60 * 1000; 
+            const progress = Math.max(0, Math.min(100, 100 - (diff / maxWindow * 100)));
+            progressBar.style.width = `${progress}%`;
+        }
+
+        // Helper: Find next occurrence
+        function getNextEvent(timesStr, now) {
+            let candidates = [];
+            
+            // Generate Date objects for today and tomorrow
+            timesStr.forEach(t => {
+                const [h, m] = t.split(':').map(Number);
+                
+                // Today
+                let d1 = new Date(now);
+                d1.setHours(h, m, 0, 0);
+                if (d1 > now) candidates.push(d1);
+
+                // Tomorrow (for crossover times like 01:00)
+                let d2 = new Date(now);
+                d2.setDate(d2.getDate() + 1);
+                d2.setHours(h, m, 0, 0);
+                candidates.push(d2);
+            });
+
+            // Sort and pick nearest
+            candidates.sort((a, b) => a - b);
+            return candidates[0];
+        }
+
+        function updateSysTime(now) {
+            document.getElementById('sys-time').innerText = now.toLocaleTimeString('en-GB', {hour12: false});
+        }
+
+        function pad(n) { return n < 10 ? '0' + n : n; }
+        function formatTime(date) {
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+
+        // Run
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
